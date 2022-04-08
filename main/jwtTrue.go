@@ -1,52 +1,73 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"github.com/golang-jwt/jwt"
-	"log"
+	"github.com/labstack/gommon/log"
 	"time"
 )
 
-const (
-	signingKey = "efwuef93u93bf9u23f9b39ufbu47bg75gb"
-	userID     = "eif93ufn934ufub"
-)
-
-type JwtCustomClaims struct {
-	Username string `json:"username"`
-	Guid     string `json:"guid"`
+type SignedDetails struct {
+	Uid string
 	jwt.StandardClaims
 }
 
-const gu = "eif93jf93jf"
-
-func getTokens() (map[string]string, error) {
-	// Create token
-	var tokenAccess = JwtCustomClaims{
-		Guid: gu,
+func GenerateAllTokens(uid string) (signedToken string, signedRefreshToken string, k *rsa.PrivateKey, err error) {
+	claims := &SignedDetails{
+		Uid: uid,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(1 * time.Hour).Unix(),
-			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodES512, tokenAccess)
 
-	tokenAc, _ := token.SignedString([]byte(signingKey)) //внутри токен
-
-	log.Println(tokenAc, "Hi")
-
-	var tokenRefresh = JwtCustomClaims{
-		Guid: gu,
+	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(100 * time.Hour).Unix(),
-			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
 		},
 	}
-	token = jwt.NewWithClaims(jwt.SigningMethodES512, tokenRefresh)
-	tokenRe, _ := token.SignedString([]byte(signingKey)) //внутри токен
 
-	return map[string]string{
-		"access_token":  tokenAc,
-		"refresh_token": tokenRe,
-	}, nil
-	//token, _ := jwt.Parse(ta, func(token *jwt.Token)) (interface{}, error)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	token, err := jwt.NewWithClaims(jwt.SigningMethodRS512, claims).SignedString(key)
+	if err != nil {
+		log.Panic(err)
+		return
+	}
+
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, refreshClaims).SignedString(key)
+	if err != nil {
+		log.Panic(err)
+		return
+	}
+
+	return token, refreshToken, key, err
 }
+
+// ValidateToken validates the jwt token
+//func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
+//	token, err := jwt.ParseWithClaims(signedToken, &SignedDetails{}, func(token *jwt.Token) (interface{}, error) {
+//		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+//			return nil, errors.New("unexpected signing method")
+//		}
+//		return []byte(SECRET_KEY), nil
+//	})
+//
+//	if err != nil {
+//		msg = err.Error()
+//		return
+//	}
+//
+//	claims, ok := token.Claims.(*SignedDetails)
+//	if !ok {
+//		msg = fmt.Sprintf("the token is invalid")
+//		msg = err.Error()
+//		return
+//	}
+//	if claims.ExpiresAt < time.Now().Local().Unix() {
+//		msg = fmt.Sprintf("token is expired")
+//		msg = err.Error()
+//		return
+//	}
+//
+//	return claims, msg
+//}
