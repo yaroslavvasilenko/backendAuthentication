@@ -1,73 +1,38 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/rsa"
+	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt"
-	"github.com/labstack/gommon/log"
 	"time"
 )
 
-type SignedDetails struct {
-	Uid string
-	jwt.StandardClaims
+func generateAllTokens(uid string, keyPrivate *rsa.PrivateKey) (signedAccessToken string, signedRefreshToken string, fTime time.Time, err error) {
+	finishTime := time.Now().Local().Add(time.Hour * time.Duration(24))
+	tokenAccess := createAccessToken(uid, finishTime, keyPrivate)
+	tokenRefresh := createRefreshToken(uid, finishTime, keyPrivate)
+	return tokenAccess, tokenRefresh, finishTime, err
 }
 
-func GenerateAllTokens(uid string) (signedToken string, signedRefreshToken string, k *rsa.PrivateKey, err error) {
-	claims := &SignedDetails{
-		Uid: uid,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(24)).Unix(),
-		},
-	}
-
-	refreshClaims := &SignedDetails{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
-		},
-	}
-
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	token, err := jwt.NewWithClaims(jwt.SigningMethodRS512, claims).SignedString(key)
+func ParseToken(tokenString string, signingKey *rsa.PrivateKey) (string, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, errors.New("unexpected signing method")
+		} // jwt.SigningMethodHMAC{} NO
+		return signingKey.Public(), nil
+	})
 	if err != nil {
-		log.Panic(err)
-		return
+		fmt.Println(err)
 	}
 
-	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodRS256, refreshClaims).SignedString(key)
-	if err != nil {
-		log.Panic(err)
-		return
+	// type-assert `Claims` into a variable of the appropriate type
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		fmt.Println(claims.Uid)
 	}
-
-	return token, refreshToken, key, err
+	return "", nil
 }
 
-// ValidateToken validates the jwt token
-//func ValidateToken(signedToken string) (claims *SignedDetails, msg string) {
-//	token, err := jwt.ParseWithClaims(signedToken, &SignedDetails{}, func(token *jwt.Token) (interface{}, error) {
-//		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-//			return nil, errors.New("unexpected signing method")
-//		}
-//		return []byte(SECRET_KEY), nil
-//	})
-//
-//	if err != nil {
-//		msg = err.Error()
-//		return
-//	}
-//
-//	claims, ok := token.Claims.(*SignedDetails)
-//	if !ok {
-//		msg = fmt.Sprintf("the token is invalid")
-//		msg = err.Error()
-//		return
-//	}
-//	if claims.ExpiresAt < time.Now().Local().Unix() {
-//		msg = fmt.Sprintf("token is expired")
-//		msg = err.Error()
-//		return
-//	}
-//
-//	return claims, msg
-//}
+func refreshOperation(Uuid string) {
+
+}

@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rsa"
-	"encoding/base64"
 	"fmt"
-	"github.com/google/uuid"
 	"log"
 	"net/http"
 )
@@ -16,7 +14,7 @@ type mongoPattern struct {
 	KeyPriv rsa.PrivateKey
 }
 
-func (app *applecation) handleGuid(w http.ResponseWriter, r *http.Request) {
+func (app *Applecation) firstRoute(w http.ResponseWriter, r *http.Request) {
 	keys, ok := r.URL.Query()["user-id"]
 	if !ok || len(keys[0]) < 1 {
 		// ToDo: return error of wrong/missing GUID
@@ -24,35 +22,76 @@ func (app *applecation) handleGuid(w http.ResponseWriter, r *http.Request) {
 	}
 	uuid := keys[0]
 
+	privateKey, _ := generatePrivatAndPublicKey()
+	_, tokenRefresh, finishTime, _ := generateAllTokens(uuid, privateKey)
 	//result := database.FindMongo(app.userAuth)
-	//fmt.Println(result)
-	_, re, keySec, _ := GenerateAllTokens("dwiqwi9nfunf")
-	str := base64.StdEncoding.EncodeToString([]byte(re))
 
-	userProfil := &mongoPattern{
+	re := &mongoPattern{
 		Uid:     uuid,
-		TokenRe: str,
-		KeyPriv: *keySec,
+		TokenRe: tokenRefresh,
+		KeyPriv: *privateKey,
 	}
-	//CA, mes := ValidateToken(Ac)
 
-	insertResult, err := app.userAuth.InsertOne(context.TODO(), userProfil)
+	insertResult, err := app.UserAuth.InsertOne(context.TODO(), re)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println("Inserted a single document: ", insertResult.InsertedID)
 
-	_, err = w.Write([]byte("Your key is: " + uuid))
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   tokenRefresh,
+		Expires: finishTime,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   tokenRefresh,
+		Expires: finishTime,
+	})
+
+}
+func (app *Applecation) sekondRoute(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("token")
 	if err != nil {
+		if err == http.ErrNoCookie {
+			// If the cookie is not set, return an unauthorized status
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// For any other type of error, return a bad request status
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	// Get the JWT string from the cookie
+	tknStr := c.Value
+	ParseToken(tknStr)
+
+	// Initialize a new instance of `Claims`
+	//refreshOperation()
+	w.Write([]byte("Отображение заметки..."))
 }
 
-func id() string {
-	return uuid.New().String()
-}
+//CA, mes := ValidateToken(Ac)
+
+//http.SetCookie(w, &http.Cookie{
+//	Name:    "token",
+//	Value:   tokenRefresh,
+//	Expires: expirationTime,
+//})
+//
+//func id() string {
+//	return uuid.New().String()
+//}
 
 func checkGuidInDataBase(guid []byte) bool {
 	return true
 }
+
+//
+//_, err = w.Write([]byte("Your key is: " + uuid))
+//if err != nil {
+//return
+//}
