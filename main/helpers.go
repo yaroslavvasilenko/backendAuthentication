@@ -42,6 +42,7 @@ func createRefreshToken(uid string, key *rsa.PrivateKey) string {
 	}
 	return refreshToken
 }
+
 func generatePrivatAndPublicKey() (*rsa.PrivateKey, *rsa.PublicKey) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {

@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// убрать из бд ключ
+// оединить токены другим образом
+
 type mongoPattern struct {
 	Uuid  string `bson:"uuid" json:"uuid"`
 	Key   []byte `bson:"key" json:"key"`
@@ -45,6 +48,7 @@ func (app *Applecation) firstRoute(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 }
+
 func (app *Applecation) sekondRoute(w http.ResponseWriter, r *http.Request) {
 	keys, ok := r.URL.Query()["user-id"]
 	if !ok || len(keys[0]) < 1 {
@@ -53,22 +57,30 @@ func (app *Applecation) sekondRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	uuid := keys[0]
 	tokenReAc := parseBodyToken(r)
-	kl := app.findMongUuid(uuid)
+	refreshTokenBd := app.findMongUuid(uuid)
 
 	// check Refresh token
-	if kl.Token != tokenReAc.TokenRe {
+	if refreshTokenBd.Token != tokenReAc.TokenRe {
 		return
 	}
-	privKey, _ := x509.ParsePKCS1PrivateKey(kl.Key)
-	q, _ := ParseToken(kl.Token, privKey)
+	privKey, _ := x509.ParsePKCS1PrivateKey(refreshTokenBd.Key)
+	// check valid token
+	userRefreshToken, valid, _ := ParseToken(refreshTokenBd.Token, privKey)
+
+	if !valid {
+		return
+	}
+	_, validAc, _ := ParseToken(tokenReAc.TokenAc, privKey)
+	if !validAc {
+		return
+	}
 
 	// check Time
-	if q.ExpiresAt < time.Now().Local().Add(time.Hour*time.Duration(1)).Unix() {
+	if userRefreshToken.ExpiresAt < time.Now().Local().Unix() {
 		return
 	}
 
-	key, _ := generatePrivatAndPublicKey()
-	tokenAccess, tokenRefresh, _, _ := generateAllTokens(uuid, key)
+	tokenAccess, tokenRefresh, _, _ := generateAllTokens(uuid, privKey)
 	app.updateTokeninMongo(tokenRefresh, uuid)
 
 	sendingToken(twoToken{tokenRefresh, tokenAccess}, w)
@@ -122,13 +134,3 @@ func parseBodyToken(r *http.Request) *twoToken {
 	}
 	return token
 }
-
-func checkGuidInDataBase(guid []byte) bool {
-	return true
-}
-
-//
-//_, err = w.Write([]byte("Your key is: " + uuid))
-//if err != nil {
-//return
-//}

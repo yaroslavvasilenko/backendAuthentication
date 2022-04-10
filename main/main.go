@@ -3,8 +3,10 @@ package main
 import (
 	"github.com/yaroslavvasilenko/backendAuthentication/database"
 	"go.mongodb.org/mongo-driver/mongo"
+	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
 // We have some guid already = we send it in our request:
@@ -12,19 +14,29 @@ import (
 type Applecation struct {
 	ServerMongo *mongo.Client
 	UserAuth    *mongo.Collection
+	Secret      []byte
 }
 
 func main() {
+	secret := dowloandKey()
 	clientMongo := database.Dbcall()
 	registr := database.InsertUser(clientMongo)
 	App := &Applecation{
 		ServerMongo: clientMongo,
 		UserAuth:    registr,
+		Secret:      secret,
 	}
-	// "Signin" and "Welcome" are the handlers that we will implement
+
 	http.HandleFunc("/", App.firstRoute)
 	http.HandleFunc("/insert", App.sekondRoute)
 	// start the server on port 8000
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
+}
+
+func dowloandKey() []byte {
+	file, _ := os.Open("sample.file")
+	defer file.Close()
+	key, _ := io.ReadAll(file)
+	return key
 }

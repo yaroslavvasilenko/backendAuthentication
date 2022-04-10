@@ -15,7 +15,7 @@ func generateAllTokens(uid string, keyPrivate *rsa.PrivateKey) (signedAccessToke
 	return tokenAccess, tokenRefresh, finishTime, err
 }
 
-func ParseToken(tokenString string, signingKey *rsa.PrivateKey) (*Claims, error) {
+func ParseToken(tokenString string, signingKey *rsa.PrivateKey) (*Claims, bool, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -29,10 +29,7 @@ func ParseToken(tokenString string, signingKey *rsa.PrivateKey) (*Claims, error)
 	// type-assert `Claims` into a variable of the appropriate type
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		fmt.Println(claims.Id)
+		return token.Claims.(*Claims), false, nil
 	}
-	return token.Claims.(*Claims), nil
-}
-
-func refreshOperation(Uuid string) {
-
+	return token.Claims.(*Claims), true, nil
 }
