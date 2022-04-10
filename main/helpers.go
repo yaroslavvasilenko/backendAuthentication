@@ -13,11 +13,11 @@ type Claims struct {
 	Uid string `json:"uid"`
 }
 
-func createAccessToken(uid string, finishTime time.Time, key *rsa.PrivateKey) string {
+func createAccessToken(uid string, key *rsa.PrivateKey) string {
 	claims := &Claims{
-		Uid: uid,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: finishTime.Unix(),
+			Id:        uid,
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(1)).Unix(),
 		},
 	}
 
@@ -28,10 +28,10 @@ func createAccessToken(uid string, finishTime time.Time, key *rsa.PrivateKey) st
 	return token
 }
 
-func createRefreshToken(uid string, finishTime time.Time, key *rsa.PrivateKey) string {
+func createRefreshToken(uid string, key *rsa.PrivateKey) string {
 	refreshClaims := &Claims{
-		Uid: uid,
 		StandardClaims: jwt.StandardClaims{
+			Id:        uid,
 			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
 		},
 	}
