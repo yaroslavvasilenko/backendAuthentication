@@ -1,10 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/rsa"
 	"github.com/golang-jwt/jwt"
 	"log"
+	"math/rand"
 	"time"
 )
 
@@ -12,6 +12,8 @@ type Claims struct {
 	jwt.StandardClaims
 	Uid string `json:"uid"`
 }
+
+const charts string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*()=-,"
 
 func createAccessToken(uid string, key *rsa.PrivateKey) string {
 	claims := &Claims{
@@ -43,12 +45,21 @@ func createRefreshToken(uid string, key *rsa.PrivateKey) string {
 	return refreshToken
 }
 
-func generatePrivatAndPublicKey() (*rsa.PrivateKey, *rsa.PublicKey) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		panic(err)
-	}
-	publicKey := privateKey.PublicKey
+func generateRandomString(size int) string {
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(src)
 
-	return privateKey, &publicKey
+	output := make([]byte, size)
+	randomness := make([]byte, size)
+	_, err := rnd.Read(randomness)
+	if err != nil {
+		return ""
+	}
+	l := uint8(len(charts))
+	for pos := range output {
+		random := uint8(randomness[pos])
+		randomPos := random % l
+		output[pos] = charts[randomPos]
+	}
+	return string(output)
 }
